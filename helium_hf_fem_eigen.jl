@@ -49,8 +49,8 @@ module Helium_HF_FEM_Eigen
         boundary_conditions!(hfem_param, hfem_val, hg_tmp, ug_tmp)
 
         if cuda_flag
-            A = cu(hfem_val.hg) 
-            B = cu(hfem_val.ug)
+            A = CuArray(hfem_val.hg) 
+            B = CuArray(hfem_val.ug)
 
             d_W, d_VA = CUSOLVER.sygvd!(1, 'V', 'L', A, B)
             
