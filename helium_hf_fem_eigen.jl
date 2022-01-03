@@ -48,6 +48,7 @@ module Helium_HF_FEM_Eigen
         # 境界条件処理を行う
         boundary_conditions!(hfem_param, hfem_val, hg_tmp, ug_tmp)
 
+        # CUDAを使用する場合
         if cuda_flag
             A = CuArray(hfem_val.hg) 
             B = CuArray(hfem_val.ug)
@@ -62,6 +63,7 @@ module Helium_HF_FEM_Eigen
 
             # 基底状態のエネルギーを取り出す
             E = h_W[1]
+        # CUDAを使用しない場合
         else
             # 一般化固有値問題を解く
             eigenval, phi = eigen!(hfem_val.hg, hfem_val.ug)
