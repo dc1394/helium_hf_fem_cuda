@@ -7,18 +7,18 @@ module Helium_HF_FEM_SCF
 
     const DR = 0.01
     const MAXITER = 1000
-    const CUDA_THRESHOLD = 5.0E-4
-    const THRESHOLD = 1.0E-12
+    const DOUBLE_THRESHOLD = 1.0E-4
+    const THRESHOLD = 1.0E-9
 
     function scfloop()
         # Schrödinger方程式を解くルーチンの初期処理
         hfem_param, hfem_val = Helium_HF_FEM_Eigen.construct()
 
-        # CUDAで計算する際のフラグ
-        cuda_flag = true
+        # 倍精度浮動小数点で計算する際のフラグ
+        double_flag = false
         
         # 有限要素法のデータのみ生成
-        Helium_HF_FEM_Eigen.make_wavefunction(cuda_flag, 0, hfem_param, hfem_val, nothing)
+        Helium_HF_FEM_Eigen.make_wavefunction(double_flag, 0, hfem_param, hfem_val, nothing)
         
         # Poisson方程式を解くルーチンの初期処理
         vh_param, vh_val = Helium_Vh_FEM.construct(hfem_param)
@@ -30,7 +30,7 @@ module Helium_HF_FEM_SCF
         enew = 0.0
 
         for iter in 1:MAXITER
-            eigenenergy = Helium_HF_FEM_Eigen.make_wavefunction(cuda_flag, iter, hfem_param, hfem_val, vh_val)
+            eigenenergy = Helium_HF_FEM_Eigen.make_wavefunction(double_flag, iter, hfem_param, hfem_val, vh_val)
             
             # 前回のSCF計算のエネルギーを保管
             eold = enew
@@ -38,7 +38,11 @@ module Helium_HF_FEM_SCF
             # 今回のSCF計算のエネルギーを計算する
             enew = Helium_HF_FEM_Eigen.get_totalenergy(eigenenergy, hfem_param, hfem_val, vh_val)
             
-            @printf "Iteration # %2d: HF eigenvalue = %.14f, energy = %.14f\n" iter eigenenergy enew
+            if double_flag
+                @printf "(double): Iteration # %2d: HF eigenvalue = %.14f, energy = %.14f\n" iter eigenenergy enew
+            else
+                @printf "(float): Iteration # %2d: HF eigenvalue = %.14f, energy = %.14f\n" iter eigenenergy enew
+            end
             
             # 今回のSCF計算のエネルギーと前回のSCF計算のエネルギーの差の絶対値
             ediff = abs(enew - eold)
@@ -50,8 +54,8 @@ module Helium_HF_FEM_SCF
 
                 # 収束したのでhfem_param, hfem_val, エネルギーを返す
                 return hfem_param, hfem_val, enew
-            elseif ediff <= CUDA_THRESHOLD
-                cuda_flag = false
+            elseif ediff <= DOUBLE_THRESHOLD
+                double_flag = true
             end
             
             # Poisson方程式を解く
