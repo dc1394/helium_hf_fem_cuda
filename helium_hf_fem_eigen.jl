@@ -31,7 +31,7 @@ module Helium_HF_FEM_Eigen
         return hfem_param, hfem_val
     end
 
-    function make_wavefunction(cuda_flag, iter, hfem_param, hfem_val, vh_val)
+    function make_wavefunction(iter, hfem_param, hfem_val, vh_val)
         if iter == 0
             # データの生成
             make_data!(hfem_param, hfem_val)
@@ -48,32 +48,30 @@ module Helium_HF_FEM_Eigen
         # 境界条件処理を行う
         boundary_conditions!(hfem_param, hfem_val, hg_tmp, ug_tmp)
 
-        # CUDAを使用する場合
-        if cuda_flag
-            A = CuArray(hfem_val.hg) 
-            B = CuArray(hfem_val.ug)
+        # 一時配列の生成
+        tmpA = zeros(hfem_param.ELE_TOTAL, hfem_param.ELE_TOTAL)
+        tmpB = zeros(hfem_param.ELE_TOTAL, hfem_param.ELE_TOTAL)
 
-            d_W, d_VA = CUSOLVER.sygvd!(1, 'V', 'L', A, B)
-            
-            h_W = collect(d_W)
-            h_VA = collect(d_VA)
+        # 一時配列にデータをコピー
+        copy!(tmpA, hfem_val.hg)
+        copy!(tmpB, hfem_val.ug)
 
-            # 基底状態の固有ベクトルを取り出す
-            hfem_val.phi = @view(h_VA[:,1])
+        # 倍精度浮動小数点で計算する場合
+        A = CuArray(tmpA) 
+        B = CuArray(tmpB)
 
-            # 基底状態のエネルギーを取り出す
-            E = h_W[1]
-        # CUDAを使用しない場合
-        else
-            # 一般化固有値問題を解く
-            eigenval, phi = eigen!(hfem_val.hg, hfem_val.ug)
+        # 一般化固有値問題を解く
+        @time d_W, d_VA = CUSOLVER.sygvd!(1, 'V', 'L', A, B)
+        
+        # デバイスメモリからホストメモリへデータコピー
+        h_W = collect(d_W)
+        h_VA = collect(d_VA)
 
-            # 基底状態の固有ベクトルを取り出す
-            hfem_val.phi = @view(phi[:,1])
+        # 基底状態の固有ベクトルを取り出す
+        hfem_val.phi = @view(h_VA[:,1])
 
-            # 基底状態のエネルギーを取り出す
-            E = eigenval[1]
-        end       
+        # 基底状態のエネルギーを取り出す
+        E = h_W[1]
    
         # 固有ベクトルの要素数を増やす
         resize!(hfem_val.phi, NODE_TOTAL)
