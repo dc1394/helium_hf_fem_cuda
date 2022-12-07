@@ -56,7 +56,7 @@ module Helium_HF_FEM_Eigen
         copy!(tmpA, hfem_val.hg)
         copy!(tmpB, hfem_val.ug)
 
-        # 倍精度浮動小数点で計算する場合
+        # ホストメモリからデバイスメモリへデータコピー
         A = CuArray(tmpA) 
         B = CuArray(tmpB)
 
